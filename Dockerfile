@@ -1,4 +1,4 @@
-FROM stackbrew/ubuntu:14.04
+FROM ubuntu:14.04
 MAINTAINER Jordi Arcas "arkkanoid@gmail.com"
 
 RUN apt-get update -qq
