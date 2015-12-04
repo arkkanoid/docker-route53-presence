@@ -28,9 +28,11 @@ def get_ip(local):
   return requests.get("http://169.254.169.254/latest/meta-data/{}-ipv4".format(scope)).content
 
 def register(hostname, ip, ttl):
-  changes = ResourceRecordSets(conn, zone_id)
-  change = changes.add_change('UPSERT', hostname, 'A', ttl)
-  change.add_value(ip)
+  change.add_change_record("UPSERT",
+                        boto.route53.record.Record(name=hostname,
+                                                   type="A",
+                                                   resource_records=ip,
+                                                   alias_hosted_zone_id=zone_id))
   return changes.commit()
 
 parser = argparse.ArgumentParser(description='Register or unregister a name in Route53.')
