@@ -1,5 +1,5 @@
-FROM stackbrew/ubuntu:13.10
-MAINTAINER Oliver Soell "oliver@timelinelabs.com"
+FROM stackbrew/ubuntu:14.04
+MAINTAINER Jordi Arcas "arkkanoid@gmail.com"
 
 RUN apt-get update -qq
 RUN apt-get install -y python-boto python-requests
