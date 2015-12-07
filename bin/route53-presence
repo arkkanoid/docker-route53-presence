@@ -7,35 +7,78 @@ import argparse
 import os
 import time
 import sys
-
-import boto
-from boto.route53.record import ResourceRecordSets
+import json
+from bson import json_util
+import boto3
 import requests
 
 def get_zone_id(hostname):
   domainname = '.'.join(hostname.split('.')[-2:])
-  zone = conn.get_hosted_zone_by_name(domainname)
-  if not zone:
+  data = client_route53.list_hosted_zones_by_name(
+    DNSName=domainname
+  )
+
+  if not data:
     print "Sorry, you don't have access to that domain!"
-    exit(1)
-  return zone.GetHostedZoneResponse.Id.split('/')[2]
+    exit(1)  
+  zones = json.loads(json.dumps(data))
+  for myzone in zones['HostedZones']:
+    if myzone['Name'] == hostname+'.':
+      zone_id = myzone['Id']
+  return zone_id
 
-def get_public_ip():
-  return requests.get("http://169.254.169.254/latest/meta-data/public-ipv4").content
+def get_public_ips(instance_name_tag):
 
-def register(hostname, instance_ip, ttl):
-  change = ResourceRecordSets(conn, zone_id)
-  change.add_change_record("UPSERT",boto.route53.record.Record(name=hostname,
-                                                     type="A",
-                                                     resource_records=instance_ip,
-                                                     alias_hosted_zone_id=zone_id))
-  return change.commit()
+  instances_json = client_ec2.describe_instances(
 
-hostname_public = os.environ.get('HOSTNAME_PUBLIC')
-conn = boto.connect_route53(os.environ.get('AWS_ACCESS_KEY'), os.environ.get('AWS_SECRET_KEY'))
+      Filters=[
+          {
+              'Name': 'tag-value',
+              'Values': [
+                  instance_name_tag,
+              ]
+          },
+      ],
+  )
+  instances = json.loads(json.dumps(instances_json, default=json_util.default),object_hook=json_util.object_hook)
+  
+  public_ips = []
+  for workerInstances in instances['Reservations']:
+    if 'PublicIpAddress' in workerInstances['Instances'][0]:
+      public_ip = {}
+      public_ip['Value'] = workerInstances['Instances'][0]['PublicIpAddress']
+      public_ips.append(public_ip)
+  return public_ips
+
+def register(zone_id, record_domain, instance_ips, ttl):
+
+  response = client_route53.change_resource_record_sets(
+      HostedZoneId = zone_id,
+      ChangeBatch={
+          'Comment': 'comment',
+          'Changes': [
+              {
+                  'Action': 'UPSERT',
+                  'ResourceRecordSet': {
+                      'Name': record_domain,
+                      'Type': 'A',
+                      'TTL': 60,
+                      'ResourceRecords': instance_ips,
+                      }
+              },
+              ]
+      }
+  )
+
+
+
+client_route53 = boto3.client('route53')
+client_ec2 = boto3.client('ec2')
+hostname_public = os.environ.get('HOSTNAME_PUBLIC') #omykuji.com
+record_domain = os.environ.get('RECORD_DOMAIN') #pre.db.omykuji.com
+instance_name_tag = os.environ.get('INSTANCE_NAME_TAG') #kubernetes-db-prod
 zone_id = get_zone_id(hostname_public)
-
-result_public = register(hostname_public, get_public_ip(), 60)
+result_public = register(zone_id, record_domain, get_public_ips(instance_name_tag), 60)
 if not result_public:
   exit(1)
 

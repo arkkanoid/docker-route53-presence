@@ -3,9 +3,11 @@ MAINTAINER Jordi Arcas "arkkanoid@gmail.com"
 
 RUN apt-get update && \
     apt-get install -y \
-        python-boto \
-        python-requests \
+        python-pip \
+        python-dev build-essential  \
         && \
+    pip install boto3 \
+    && \    
     rm -rf /var/lib/apt/lists/*
 
 
