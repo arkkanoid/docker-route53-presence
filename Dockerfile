@@ -6,7 +6,7 @@ RUN apt-get update && \
         python-pip \
         python-dev build-essential  \
         && \
-    pip install boto3 \
+    pip install boto3 pymongo\
     && \    
     rm -rf /var/lib/apt/lists/*
 
